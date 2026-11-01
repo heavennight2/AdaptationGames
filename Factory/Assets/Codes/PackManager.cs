@@ -14,10 +14,10 @@ public class PackManager : MonoBehaviour
 
     [Header("Cigarette Size Inside Pack")]
     [Range(0.1f, 2f)]
-    public float cigaretteWidth = 0.35f;
+    public float cigaretteWidth = 0.83f;
 
     [Range(0.1f, 2f)]
-    public float cigaretteHeight = 0.45f;
+    public float cigaretteHeight = 0.72f;
 
     [Header("Pack Visuals")]
     public Sprite closedPackSprite;
@@ -27,6 +27,10 @@ public class PackManager : MonoBehaviour
     public float exitX = -11f;
     public float closeDelay = 0.4f;
     public float newPackDelay = 0.3f;
+
+    [Header("Audio")]
+    public AudioSource placeAudioSource;
+    public AudioSource closeAudioSource;
 
     private Sprite openPackSprite;
     private SpriteRenderer sr;
@@ -42,6 +46,27 @@ public class PackManager : MonoBehaviour
         startingPosition = transform.position;
     }
 
+    void Start()
+    {
+        // Find placement sound in Hierarchy
+        if (placeAudioSource == null)
+        {
+            GameObject placeObject = GameObject.Find("PlaceSound");
+
+            if (placeObject != null)
+                placeAudioSource = placeObject.GetComponent<AudioSource>();
+        }
+
+        // Find closing sound in Hierarchy
+        if (closeAudioSource == null)
+        {
+            GameObject closeObject = GameObject.Find("CloseSound");
+
+            if (closeObject != null)
+                closeAudioSource = closeObject.GetComponent<AudioSource>();
+        }
+    }
+
     public bool CanPack()
     {
         return !isClosing &&
@@ -50,25 +75,31 @@ public class PackManager : MonoBehaviour
 
     public bool AddCigarette(GameObject cigarette)
     {
-        if (!CanPack()) return false;
+        if (!CanPack())
+            return false;
 
         int index = currentCigarettes;
 
         if (index >= slots.Length || slots[index] == null)
             return false;
 
+        Transform targetSlot = slots[index];
+
+        // Stop rolling
         CigaretteRolling rolling =
             cigarette.GetComponent<CigaretteRolling>();
 
         if (rolling != null)
             rolling.enabled = false;
 
+        // Stop dragging
         CigaretteDrag drag =
             cigarette.GetComponent<CigaretteDrag>();
 
         if (drag != null)
             drag.enabled = false;
 
+        // Stop physics
         Rigidbody2D rb =
             cigarette.GetComponent<Rigidbody2D>();
 
@@ -79,19 +110,27 @@ public class PackManager : MonoBehaviour
             rb.simulated = false;
         }
 
-        cigarette.transform.SetParent(slots[index], false);
+        // Disable collision
+        Collider2D col =
+            cigarette.GetComponent<Collider2D>();
+
+        if (col != null)
+            col.enabled = false;
+
+        // Attach cigarette to its assigned slot
+        cigarette.transform.SetParent(targetSlot, false);
+
         cigarette.transform.localPosition = Vector3.zero;
         cigarette.transform.localRotation = Quaternion.identity;
+
+        // Set consistent cigarette size
         cigarette.transform.localScale = new Vector3(
             cigaretteWidth,
             cigaretteHeight,
             1f
         );
 
-        Collider2D col = cigarette.GetComponent<Collider2D>();
-        if (col != null)
-            col.enabled = false;
-
+        // Set sprite sorting
         SpriteRenderer cigaretteSR =
             cigarette.GetComponent<SpriteRenderer>();
 
@@ -100,6 +139,16 @@ public class PackManager : MonoBehaviour
 
         currentCigarettes++;
 
+        // Placement sound
+        if (placeAudioSource != null &&
+            placeAudioSource.clip != null)
+        {
+            placeAudioSource.PlayOneShot(
+                placeAudioSource.clip
+            );
+        }
+
+        // Finish after 10 cigarettes
         if (currentCigarettes >= maxCigarettes)
             StartCoroutine(FinishPack());
 
@@ -110,45 +159,52 @@ public class PackManager : MonoBehaviour
     {
         isClosing = true;
 
-        // Wait before closing
         yield return new WaitForSeconds(closeDelay);
 
-        // Hide cigarettes inside
+        // Hide cigarettes
         foreach (Transform slot in slots)
         {
-            if (slot == null) continue;
+            if (slot == null)
+                continue;
 
             foreach (Transform child in slot)
                 child.gameObject.SetActive(false);
         }
 
-        // Close the pack
+        // Close pack
         if (closedPackSprite != null)
             sr.sprite = closedPackSprite;
 
+        // Closing sound
+        if (closeAudioSource != null)
+            closeAudioSource.Play();
+
         completedPacks++;
 
-        // Move closed pack to the left
+        // Move pack along conveyor
         while (transform.position.x > exitX)
         {
-            transform.position += Vector3.left *
-                                  conveyorSpeed * Time.deltaTime;
+            transform.position +=
+                Vector3.left * conveyorSpeed * Time.deltaTime;
 
             yield return null;
         }
 
-        // Remove packed cigarettes
+        // Destroy used cigarettes
         foreach (Transform slot in slots)
         {
-            if (slot == null) continue;
+            if (slot == null)
+                continue;
 
             for (int i = slot.childCount - 1; i >= 0; i--)
+            {
                 Destroy(slot.GetChild(i).gameObject);
+            }
         }
 
         yield return new WaitForSeconds(newPackDelay);
 
-        // Reset position and open pack
+        // Reset pack
         transform.position = startingPosition;
         sr.sprite = openPackSprite;
 

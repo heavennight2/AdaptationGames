@@ -193,3 +193,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3e84401bcd61be0489a76ef9849763fb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CigaretteDrag
+  sfxSource: {fileID: 0}
+  pickupSound: {fileID: 0}
+  pickupVolume: 0.824

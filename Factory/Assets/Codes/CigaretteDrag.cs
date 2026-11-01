@@ -7,6 +7,9 @@ public class CigaretteDrag : MonoBehaviour
     private CigaretteRolling rolling;
     private Collider2D cigaretteCollider;
 
+    [Header("Audio")]
+    public AudioSource pickupAudioSource;
+
     private bool dragging;
     private Vector3 previousPosition;
 
@@ -17,10 +20,25 @@ public class CigaretteDrag : MonoBehaviour
         cigaretteCollider = GetComponent<Collider2D>();
     }
 
+    void Start()
+    {
+        // Find the shared pickup sound from Hierarchy
+        if (pickupAudioSource == null)
+        {
+            GameObject soundObject = GameObject.Find("PickupSound");
+
+            if (soundObject != null)
+                pickupAudioSource = soundObject.GetComponent<AudioSource>();
+        }
+    }
+
     void OnMouseDown()
     {
         dragging = true;
         previousPosition = transform.position;
+
+        if (pickupAudioSource != null)
+            pickupAudioSource.Play();
 
         if (rolling != null)
             rolling.enabled = false;
@@ -43,6 +61,7 @@ public class CigaretteDrag : MonoBehaviour
     void OnMouseUp()
     {
         if (!dragging) return;
+
         dragging = false;
 
         PackManager pack = PackManager.instance;
